@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style2.css') }}">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .chat-container {
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 400px;
+        }
+
+        .chat-box {
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            min-height: 200px;
+            padding: 10px;
+            margin-bottom: 15px;
+            overflow-y: auto;
+        }
+
+        .user-message, .bot-message {
+            margin: 5px 0;
+            padding: 8px 10px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+
+        .user-message {
+            background-color: #007bff;
+            color: #fff;
+            align-self: flex-end;
+        }
+
+        .bot-message {
+            background-color: #6c757d;
+            color: #fff;
+            align-self: flex-start;
+        }
+
+        #user-input {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            width: 70%;
+        }
+
+        #user-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .output-container {
+            background-color: #fff;
+            border-radius: 15px;
+            box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 400px;
+            margin-left: 20px;
+        }
+
+        .output-box {
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #007bff;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #007bff;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <h2>Chat with Our Chatbot</h2>
+            <div class="chat-box" id="chat-box"></div>
+            <input type="text" id="user-input" placeholder="Type your query...we will give you a Fairy ! ">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        function sendMessage() {
+            var userInput = document.getElementById("user-input").value;
+            document.getElementById("chat-box").innerHTML += "<div class='user-message'>" + userInput + "</div>";
+            document.getElementById("user-input").value = "";
+
+            fetch("/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: userInput })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);  
+                if (data.message) {
+                    document.getElementById("chat-box").innerHTML += "<div class='bot-message'>" + data.message + "</div>";
+                } else if (data.name !== "Not Found") {
+                    var botResponse = "<strong>Name:</strong><br> " + data.name + "<br>" +
+                    "<br><strong>Description:</strong><br> " + data.description + 
+                    "<br><strong>URL:</strong> <a href= ' + data.url + ' target='_blank' >" + data.url + "</a>";
+                    document.getElementById("chat-box").innerHTML += "<div class='bot-message'>" + botResponse + "</div>";
+                    
+                    
+                    fetch("/add_to_database", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(data => console.log(data))
+                    .catch(error => console.error('Error:', error));
+                } else {
+                    
+                    document.getElementById("chat-box").innerHTML += "<div class='bot-message'>Sorry, I couldn't find any relevant information. Please check your query.</div>";
+                    
+                   
+                    fetch_info_from_internet(userInput);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function fetch_info_from_internet(query) {
+            
+            fetch("/search", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                if (data.items && data.items.length > 0) {
+                    var searchResult = "<strong>Search Results:</strong><br>";
+                    data.items.forEach(item => {
+                        searchResult += "<br><strong>Title:</strong> " + item.title +
+                                        "<br><strong>Link:</strong> <a href= ' + item.link + '  target='_blank'>" + item.link + "</a><br>";
+                    });
+                    document.getElementById("chat-box").innerHTML += "<div class='bot-message'>" + searchResult + "</div>";
+                } else {
+                    document.getElementById("chat-box").innerHTML += "<div class='bot-message'>Sorry, I couldn't find any relevant information from the web.</div>";
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        document.getElementById("user-input").addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
